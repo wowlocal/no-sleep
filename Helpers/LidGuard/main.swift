@@ -46,7 +46,10 @@ guard lockFD >= 0, flock(lockFD, LOCK_EX | LOCK_NB) == 0 else { exit(75) }
 defer { close(lockFD) }
 
 let stop = StopFlag()
-let signals = [SIGTERM, SIGINT, SIGHUP].map { number -> DispatchSourceSignal in
+// The authorization shell exits immediately after launch. Keep nohup's SIGHUP
+// behavior; the owning app and lease, rather than that shell, define lifetime.
+signal(SIGHUP, SIG_IGN)
+let signals = [SIGTERM, SIGINT].map { number -> DispatchSourceSignal in
     signal(number, SIG_IGN)
     let source = DispatchSource.makeSignalSource(signal: number, queue: .global())
     source.setEventHandler { stop.request() }
