@@ -146,7 +146,6 @@ struct CoffeeView: View {
             .padding(.top, 12)
         }
         .padding(compact ? 16 : 22)
-        .padding(.top, compact ? 0 : 16)
         .frame(width: compact ? 320 : 354)
         .alert("Кофеин", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("Понятно", role: .cancel) { model.error = nil }
@@ -332,6 +331,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         container.addChild(host)
         window.contentViewController = container
         window.setContentSize(size)
+        // Keep native window behavior without the titlebar traffic lights.
+        for button: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+            window.standardWindowButton(button)?.isHidden = true
+        }
         window.isReleasedWhenClosed = false
         window.center()
         installMenu()
@@ -368,12 +371,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showMenu.target = self
         appMenu.addItem(showMenu)
         appMenu.addItem(.separator())
+        let close = NSMenuItem(title: "Закрыть окно", action: #selector(closeWindow), keyEquivalent: "w")
+        close.target = self
+        appMenu.addItem(close)
         appMenu.addItem(withTitle: "Скрыть Кофеин", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Выйти из Кофеина", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
         menu.addItem(appMenuItem)
         NSApp.mainMenu = menu
+    }
+
+    @objc private func closeWindow() {
+        window.close()
     }
 
     @objc private func showWindow() {
