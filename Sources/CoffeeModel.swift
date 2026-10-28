@@ -29,6 +29,7 @@ final class CoffeeModel: ObservableObject {
     }
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     @Published var error: String?
+    let closedLid = ClosedLidController()
 
     private let session = CaffeinateSession()
     private let defaults: UserDefaults
@@ -37,6 +38,7 @@ final class CoffeeModel: ObservableObject {
     private(set) var deadline: Date?
     private var timer: Timer?
     private var wakeObserver: NSObjectProtocol?
+    private var closedLidObserver: AnyCancellable?
 
     init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init, observeSystemEvents: Bool = true) {
         self.defaults = defaults
@@ -45,6 +47,8 @@ final class CoffeeModel: ObservableObject {
         configuredSeconds = max(0, defaults.object(forKey: "sessionSeconds") as? Int ?? legacy.rawValue)
         duration = DurationChoice(rawValue: configuredSeconds)
         keepDisplayAwake = defaults.bool(forKey: "keepDisplayAwake")
+        closedLid.onError = { [weak self] message in self?.error = message }
+        closedLidObserver = closedLid.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         if observeSystemEvents {
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.tick() }
             wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -84,6 +88,7 @@ final class CoffeeModel: ObservableObject {
     }
 
     func disable() {
+        closedLid.disable()
         session.stop()
         isActive = false
         deadline = nil
@@ -93,7 +98,14 @@ final class CoffeeModel: ObservableObject {
         defaults.set(false, forKey: "enabled")
     }
 
-    func shutdown() { session.stop() }
+    func shutdown() { closedLid.shutdown(); session.stop() }
+
+    func setClosedLidEnabled(_ enabled: Bool) {
+        if enabled {
+            if !isActive { enable(resetDeadline: true) }
+            if isActive { closedLid.enable(until: deadline) }
+        } else { closedLid.disable() }
+    }
 
     deinit {
         timer?.invalidate()
@@ -122,6 +134,7 @@ final class CoffeeModel: ObservableObject {
             isActive = true
             error = nil
             defaults.set(true, forKey: "enabled")
+            closedLid.update(until: deadline)
             updateRemaining()
         } catch {
             disable()

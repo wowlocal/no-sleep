@@ -102,6 +102,19 @@ struct CoffeeView: View {
                 }
                 .toggleStyle(QuietToggleStyle(label: "Не гасить экран")).font(.system(size: 12))
                 HStack {
+                    Text("С закрытой крышкой")
+                    Spacer()
+                    if model.closedLid.isBusy {
+                        ProgressView().controlSize(.mini).frame(width: 28, height: 16)
+                    } else {
+                        Toggle("С закрытой крышкой", isOn: Binding(
+                            get: { model.closedLid.isEnabled }, set: { model.setClosedLidEnabled($0) }
+                        )).labelsHidden()
+                    }
+                }
+                .toggleStyle(QuietToggleStyle(label: "С закрытой крышкой")).font(.system(size: 12))
+                .help("Не усыплять Mac при закрытии крышки. При включении потребуется разрешение администратора.")
+                HStack {
                     Text("Автозапуск")
                     Spacer()
                     Toggle("Открывать при входе", isOn: Binding(
@@ -121,7 +134,7 @@ struct CoffeeView: View {
                     .accessibilityLabel("Как это работает")
                     .help("Как это работает")
                     .popover(isPresented: $showInfo) {
-                        Text("Оставьте крышку открытой. Закрытие окна не выключает Кофеин. У Wi-Fi может быть свой лимит сессии.")
+                        Text("Крышку можно закрывать, когда включён режим «С закрытой крышкой». Закрытие окна не выключает Кофеин. У Wi-Fi может быть свой лимит сессии.")
                             .font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
                             .frame(width: 230, alignment: .leading).padding(14)
                     }
