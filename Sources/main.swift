@@ -283,6 +283,13 @@ struct QuietToggleStyle: ToggleStyle {
     }
 }
 
+// The glass surface owns the window outline. A native titlebar adds a second
+// focus border with a different corner shape behind it.
+final class CoffeeWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = CoffeeModel()
     private var statusItem: NSStatusItem!
@@ -300,13 +307,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ScrollView(.vertical, showsIndicators: naturalSize.height > height) { content }
                 .frame(width: 354, height: height).ignoresSafeArea()
         )
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 354, height: 540),
-                          styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window = CoffeeWindow(contentRect: NSRect(x: 0, y: 0, width: 354, height: 540),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
         window.title = "Кофеин"
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
         window.isOpaque = false
         window.backgroundColor = .clear
+        window.hasShadow = true
         window.isMovableByWindowBackground = true
         let size = host.view.fittingSize
         let surface: NSView
@@ -326,15 +332,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         host.view.frame = surface.bounds
         host.view.autoresizingMask = [.width, .height]
+        // Glass can draw focus/refraction effects outside its rounded shape.
+        // Clip the entire surface, including those effects, at the window edge.
+        let outline = NSView(frame: surface.bounds)
+        outline.wantsLayer = true
+        outline.layer?.cornerRadius = 24
+        outline.layer?.cornerCurve = .continuous
+        outline.layer?.masksToBounds = true
+        surface.autoresizingMask = [.width, .height]
+        outline.addSubview(surface)
         let container = NSViewController()
-        container.view = surface
+        container.view = outline
         container.addChild(host)
         window.contentViewController = container
         window.setContentSize(size)
-        // Keep native window behavior without the titlebar traffic lights.
-        for button: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
-            window.standardWindowButton(button)?.isHidden = true
-        }
         window.isReleasedWhenClosed = false
         window.center()
         installMenu()
